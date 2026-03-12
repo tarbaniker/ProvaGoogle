@@ -1,19 +1,10 @@
 package com.example.provagoogle;
 
-import android.os.Bundle;
-
-// import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AppCompatActivity;
-// import androidx.core.graphics.Insets;
-// import androidx.core.view.ViewCompat;
-// import androidx.core.view.WindowInsetsCompat;
 import android.content.Intent;
-// import android.os.Bundle;
+import android.os.Bundle;
 import android.widget.Toast;
 
-// import androidx.activity.result.ActivityResultLauncher;
-// import androidx.activity.result.contract.ActivityResultContracts;
-// import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
@@ -26,10 +17,8 @@ import com.google.api.client.http.FileContent;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.drive.Drive;
-// import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.File;
 
-// import java.io.IOException;
 import java.util.Collections;
 
 public class MainActivity extends AppCompatActivity {
