@@ -1,113 +1,126 @@
 package com.example.provagoogle;
 
-import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
+import android.widget.Button;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.credentials.Credential;
+import androidx.credentials.CredentialManager;
+import androidx.credentials.GetCredentialRequest;
+import androidx.credentials.GetCredentialResponse;
+import androidx.credentials.exceptions.GetCredentialException;
+import androidx.credentials.exceptions.NoCredentialException;
 
-import com.google.android.gms.auth.api.signin.GoogleSignIn;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.auth.api.signin.GoogleSignInClient;
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.common.api.Scope;
-import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
-import com.google.api.client.http.FileContent;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
-import com.google.api.services.drive.Drive;
-import com.google.api.services.drive.model.File;
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 
-import java.util.Collections;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
+import androidx.credentials.Credential;
+import androidx.credentials.CustomCredential;
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException;
+
 
 public class MainActivity extends AppCompatActivity {
 
-    // @Override
-    private static final int RC_SIGN_IN = 9001;
-    private GoogleSignInClient googleSignInClient;
+    private static final String TAG = "CredentialManager";
+    private CredentialManager credentialManager;
+    private final Executor executor = Executors.newSingleThreadExecutor();
+
+    // Canvia-ho pel teu **Web application** Client ID del Google Cloud Console
+    private static final String WEB_CLIENT_ID = "874628293746-n19a7qm9c5821k15kfchd26s0rdcjp8s.apps.googleusercontent.com";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Inicialitzar Google Sign-In
-        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestScopes(new Scope("https://www.googleapis.com/auth/drive.file"))  // permís mínim recomanat
-                //.requestScopes(new Scope(DriveScopes.DRIVE))  // si necessites accés complet
-                .requestEmail()
+        credentialManager = CredentialManager.create(this);
+
+        Button btnSignIn = findViewById(R.id.btnSignIn);
+        btnSignIn.setOnClickListener(v -> signInWithGoogle());
+    }
+
+    private void signInWithGoogle() {
+        GetGoogleIdOption googleIdOption = new GetGoogleIdOption.Builder()
+//                .setFilterByAuthorizedAccounts(false)
+                .setFilterByAuthorizedAccounts(true)
+                .setServerClientId(WEB_CLIENT_ID)
+                .setAutoSelectEnabled(false) // Desactivat per forçar el selector si hi ha algun error de 'matching'
                 .build();
 
-        googleSignInClient = GoogleSignIn.getClient(this, gso);
+        GetCredentialRequest request = new GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build();
 
-        // Exemple: botó per iniciar sessió i pujar
-        findViewById(R.id.btnUpload).setOnClickListener(v -> signInAndUpload());
+        credentialManager.getCredentialAsync(
+                this,
+                request,
+                null,
+                executor,
+                new androidx.credentials.CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
+                    @Override
+                    public void onResult(GetCredentialResponse response) {
+                        handleSignInResponse(response);
+                    }
+
+                    @Override
+                    public void onError(@NonNull GetCredentialException e) {
+                        Log.e(TAG, "Sign-in error: " + e.getClass().getName(), e);
+                        runOnUiThread(() -> {
+                            String errorMsg = e.getMessage();
+                            if (e instanceof NoCredentialException) {
+                                errorMsg = "No s'han trobat comptes. Revisa el Web Client ID i la configuració a Google Cloud Console (SHA-1).";
+                            }
+                            Toast.makeText(MainActivity.this, "Error: " + errorMsg, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                }
+        );
     }
 
-    private void signInAndUpload() {
-        Intent signInIntent = googleSignInClient.getSignInIntent();
-        startActivityForResult(signInIntent, RC_SIGN_IN);
-    }
+    private void handleSignInResponse(GetCredentialResponse response) {
+        Credential credential = response.getCredential();
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+        if (credential instanceof CustomCredential) {
+            CustomCredential customCredential = (CustomCredential) credential;
 
-        if (requestCode == RC_SIGN_IN) {
-            com.google.android.gms.tasks.Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
-            try {
-                GoogleSignInAccount account = task.getResult(ApiException.class);
-                uploadFileToDrive(account);
-            } catch (ApiException e) {
-                Toast.makeText(this, "Error sign-in: " + e.getStatusCode(), Toast.LENGTH_SHORT).show();
+            if (GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(customCredential.getType())) {
+                GoogleIdTokenCredential googleIdTokenCredential =
+                        GoogleIdTokenCredential.createFrom(customCredential.getData());
+
+                String idToken = googleIdTokenCredential.getIdToken();
+                String email = googleIdTokenCredential.getId();           // normalment l'email
+                String displayName = googleIdTokenCredential.getDisplayName();
+
+                runOnUiThread(() -> {
+                    Toast.makeText(this,
+                            "Sign in correcte!\nEmail: " + email,
+                            Toast.LENGTH_LONG).show();
+                });
+
+                Log.d("SignIn", "ID Token: " + idToken);
+                // Ara pots utilitzar l'idToken (per exemple, enviar al teu backend)
+                // o demanar autorització per Drive
+
+            } else {
+                // Altres tipus de CustomCredential (passkeys, etc.)
+                runOnUiThread(() ->
+                        Toast.makeText(this, "Tipus de credential inesperat: " + customCredential.getType(),
+                                Toast.LENGTH_SHORT).show()
+                );
             }
+        } else {
+            runOnUiThread(() ->
+                    Toast.makeText(this, "Tipus de credential no esperat", Toast.LENGTH_SHORT).show()
+            );
         }
     }
-    private void uploadFileToDrive(GoogleSignInAccount account) {
-        new Thread(() -> {
-            try {
-                GoogleAccountCredential credential = GoogleAccountCredential.usingOAuth2(
-                        MainActivity.this,
-                        Collections.singleton("https://www.googleapis.com/auth/drive.file")
-                );
-                credential.setSelectedAccount(account.getAccount());
 
-                Drive service = new Drive.Builder(
-                        new NetHttpTransport(),
-                        GsonFactory.getDefaultInstance(),
-                        credential)
-                        .setApplicationName("La teva App")
-                        .build();
 
-                // Exemple: fitxer local que vols pujar
-                java.io.File filePath = new java.io.File("/storage/emulated/0/Download/exemple.jpg");
-
-                File fileMetadata = new File();
-                fileMetadata.setName("exemple_" + System.currentTimeMillis() + ".jpg");
-                fileMetadata.setMimeType("image/jpeg");
-                // fileMetadata.setParents(Collections.singletonList("tu_folder_id_aqui"));  // opcional
-
-                FileContent mediaContent = new FileContent("image/jpeg", filePath);
-
-                File uploadedFile = service.files().create(fileMetadata, mediaContent)
-                        .setFields("id, name, webViewLink")
-                        .execute();
-
-                runOnUiThread(() ->
-                        Toast.makeText(MainActivity.this,
-                                "Fitxer pujat! ID: " + uploadedFile.getId(),
-                                Toast.LENGTH_LONG).show()
-                );
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                runOnUiThread(() ->
-                        Toast.makeText(MainActivity.this,
-                                "Error: " + e.getMessage(),
-                                Toast.LENGTH_LONG).show()
-                );
-            }
-        }).start();
-    }
 }

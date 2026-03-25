@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">ProvaGoogle</string>
     <string name="upload">Upload</string>
+    <string name="web_client_id">874628293746-jpdi566jo85v6r7qp63i6kttfavonttb.apps.googleusercontent.com</string>
 </resources>
