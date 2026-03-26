@@ -64,7 +64,20 @@ dependencies {
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
 
-    implementation 'androidx.credentials:credentials:1.5.0'  // o versió més recent
-    implementation 'androidx.credentials:credentials-play-services-auth:1.5.0'
-    implementation 'com.google.android.libraries.identity.googleid:googleid:1.2.0'  // o més recent
+    implementation libs.credentials  // o versió més recent
+    implementation libs.credentials.play.services.auth
+    implementation libs.googleid  // o més recent
+
+    // Drive REST API v3
+    implementation libs.google.api.services.drive
+    implementation libs.google.api.client.android
+    /* {
+        exclude group: 'org.apache.httpcomponents'
+    } */
+    implementation libs.google.http.client.gson
+    implementation libs.google.auth.library.oauth2.http
+    implementation libs.play.services.auth
+
+    implementation libs.google.services
+
 }
