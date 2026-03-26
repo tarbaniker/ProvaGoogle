@@ -104,9 +104,40 @@ public class MainActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG).show();
                 });
 
-                Log.d("SignIn", "ID Token: " + idToken);
+                Log.i("SignIn", "ID Token: " + idToken);
                 // Ara pots utilitzar l'idToken (per exemple, enviar al teu backend)
                 // o demanar autorització per Drive
+
+                Drive service = new Drive.Builder(
+                        new NetHttpTransport(),
+                        GsonFactory.getDefaultInstance(),
+                        credential)
+                        .setApplicationName("La teva App")
+                        .build();
+
+                // Exemple: fitxer local que vols pujar
+                java.io.File filePath = new java.io.File("res/raw/provesgoogledrive.txt");
+                File fileMetadata = new File();
+                //fileMetadata.setName("exemple_" + System.currentTimeMillis() + ".jpg");
+                fileMetadata.setName("exemple_" + System.currentTimeMillis() + ".txt");
+
+                //fileMetadata.setMimeType("image/jpeg");
+                fileMetadata.setMimeType("text/plain");
+                fileMetadata.setParents(Collections.singletonList("Snooker"));  // opcional
+
+                //FileContent mediaContent = new FileContent("image/jpeg", filePath);
+                FileContent mediaContent = new FileContent("text/plain", filePath);
+
+                File uploadedFile = service.files().create(fileMetadata, mediaContent)
+                        .setFields("id, name, webViewLink")
+                        .execute();
+
+                runOnUiThread(() ->
+                        Toast.makeText(MainActivity.this,
+                                "Fitxer pujat! ID: " + uploadedFile.getId(),
+                                Toast.LENGTH_LONG).show()
+                );
+
 
             } else {
                 // Altres tipus de CustomCredential (passkeys, etc.)
